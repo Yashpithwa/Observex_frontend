@@ -2,6 +2,13 @@ import { useEffect, useState } from "react";
 import Sidebar from "../components/Sidebar";
 import { getServices } from "../api/servicesApi";
 import { getAiInsight } from "../api/ai";
+import {
+  Brain,
+  AlertTriangle,
+  TrendingUp,
+  Lightbulb,
+  Activity,
+} from "lucide-react";
 
 /* ================= MAIN PAGE ================= */
 
@@ -52,13 +59,11 @@ const AI = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#050b2c] via-[#020617] to-black text-white">
 
-      {/* Sidebar */}
-      <div className="fixed top-0 left-0 h-full w-64 z-40">
+      <div className="fixed top-0 left-0 h-full w-72 z-40">
         <Sidebar />
       </div>
 
-      {/* Content */}
-      <div className="ml-0 md:ml-64 px-6 md:px-10 py-8 space-y-8 overflow-y-auto min-h-screen">
+      <div className="ml-0 md:ml-72 px-6 md:px-10 py-8 space-y-8 overflow-y-auto min-h-screen">
 
         <div>
           <h1 className="text-4xl font-bold tracking-tight">AI Insights</h1>
@@ -67,7 +72,6 @@ const AI = () => {
           </p>
         </div>
 
-        {/* 🔥 Custom Dropdown */}
         <div className="flex items-center gap-4">
           <label className="text-sm text-slate-400">Service</label>
           <ServiceDropdown
@@ -77,9 +81,12 @@ const AI = () => {
           />
         </div>
 
-        {/* System Analysis */}
+        {/* SYSTEM ANALYSIS */}
         <div className="bg-gradient-to-br from-cyan-500/10 via-blue-500/5 to-transparent border border-cyan-400/20 rounded-2xl p-8 shadow-lg shadow-cyan-900/30">
-          <h2 className="text-lg font-semibold mb-3">🧠 System Analysis</h2>
+          <div className="flex items-center gap-2 mb-3">
+            <Brain size={18} className="text-cyan-400" />
+            <h2 className="text-lg font-semibold">System Analysis</h2>
+          </div>
           {loading ? (
             <Skeleton className="h-24 w-full" />
           ) : (
@@ -87,16 +94,19 @@ const AI = () => {
           )}
         </div>
 
-        {/* Insight Cards */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          <InsightCard title="⚠ Detected Anomalies" items={anomalies} type="severity" />
-          <InsightCard title="📈 Predictions" items={predictions} type="confidence" />
-          <InsightCard title="💡 Recommendations" items={recommendations} type="priority" />
+          <InsightCard title="Detected Anomalies" icon={<AlertTriangle size={18} />} items={anomalies} type="severity" />
+          <InsightCard title="Predictions" icon={<TrendingUp size={18} />} items={predictions} type="confidence" />
+          <InsightCard title="Recommendations" icon={<Lightbulb size={18} />} items={recommendations} type="priority" />
         </div>
 
-        {/* Pattern Section */}
         <div className="bg-slate-900/60 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl shadow-black/30">
-          <h2 className="text-lg font-semibold mb-4 text-slate-200">7-Day Pattern Analysis</h2>
+          <div className="flex items-center gap-2 mb-4">
+            <Activity size={18} className="text-cyan-400" />
+            <h2 className="text-lg font-semibold text-slate-200">
+              7-Day Pattern Analysis
+            </h2>
+          </div>
           {patterns.map((p, i) => (
             <Pattern key={i} day={p.day} level={p.level} />
           ))}
@@ -154,9 +164,12 @@ const Skeleton = ({ className }) => (
   <div className={`animate-pulse bg-white/10 rounded-lg ${className}`} />
 );
 
-const InsightCard = ({ title, items, type }) => (
+const InsightCard = ({ title, icon, items, type }) => (
   <div className="bg-slate-900/60 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl shadow-black/30 hover:-translate-y-1 transition">
-    <h3 className="font-semibold mb-3 text-slate-200">{title}</h3>
+    <div className="flex items-center gap-2 mb-3 text-slate-200">
+      <span className="text-cyan-400">{icon}</span>
+      <h3 className="font-semibold">{title}</h3>
+    </div>
     <div className="space-y-3">
       {items.map((item, i) => (
         <div key={i} className="bg-slate-800/60 border border-white/5 rounded-xl p-4 hover:bg-slate-800/80 transition">

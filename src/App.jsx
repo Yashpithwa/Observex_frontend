@@ -8,6 +8,7 @@ import ProtectedRoute from "./routes/ProtectedRoute";
 import Overview from "./pages/Overview";
 import Alerts from "./pages/Alerts";
 import AI from "./pages/AI";
+import Subscription from "./pages/Subscription";
 
 function App() {
   return (
@@ -24,6 +25,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Home />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/subscription"
+          element={
+            <ProtectedRoute>
+              <Subscription />
             </ProtectedRoute>
           }
         />

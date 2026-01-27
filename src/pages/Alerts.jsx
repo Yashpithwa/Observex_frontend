@@ -1,176 +1,189 @@
 import { useEffect, useState } from "react";
 import Sidebar from "../components/Sidebar";
-import { getAlerts } from "../api/alertsApi";
-import { getAiReason } from "../api/ai";
+import { getServiceStatuses } from "../api/overviewApi";
+import { getHistoryData } from "../api/historyApi";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  CartesianGrid,
+} from "recharts";
 
-const Alerts = () => {
-  const [alerts, setAlerts] = useState([]);
-  const [reasons, setReasons] = useState({});
+const Overview = () => {
+  const [services, setServices] = useState([]);
+  const [histories, setHistories] = useState({});
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("OPEN");
 
-  const loadAlerts = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
-      const res = await getAlerts();
+      const res = await getServiceStatuses();
       const list = res.data || [];
-      setAlerts(list);
+      setServices(list);
 
-      // 🔥 Fetch AI reasons for open alerts
-      list.forEach(async (alert) => {
-        const serviceId = alert.service?.id || alert.service?.serviceId;
-        if (!serviceId) return;
-
-        try {
-          const r = await getAiReason(serviceId);
-          const parsed = typeof r.data === "string" ? JSON.parse(r.data) : r.data;
-          setReasons((prev) => ({ ...prev, [alert.id]: parsed }));
-        } catch (err) {
-          console.error("AI reason failed", err);
-        }
-      });
-
+      const historyMap = {};
+      for (const s of list) {
+        const h = await getHistoryData(s.serviceId);
+        historyMap[s.serviceId] = (h.data || []).map((row) => ({
+          time: new Date(row.checkAt).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          responseTime: row.responseTime,
+        }));
+      }
+      setHistories(historyMap);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadAlerts();
-    const interval = setInterval(loadAlerts, 30000);
+    loadData();
+    const interval = setInterval(loadData, 60000);
     return () => clearInterval(interval);
   }, []);
-
-  const openAlerts = alerts.filter((a) => a.closedAt === null);
-  const resolvedAlerts = alerts.filter((a) => a.closedAt !== null);
-  const visibleAlerts = tab === "OPEN" ? openAlerts : resolvedAlerts;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#050b2c] via-[#020617] to-black text-white">
 
-      <div className="fixed top-0 left-0 h-full w-64 z-40">
+      {/* SIDEBAR */}
+      <div className="fixed top-0 left-0 h-full w-72 z-40">
         <Sidebar />
       </div>
 
-      <div className="ml-0 md:ml-64 px-6 md:px-10 py-8 space-y-6 overflow-y-auto min-h-screen">
+      {/* MAIN CONTENT */}
+      <div className="ml-0 md:ml-72 min-h-screen px-6 sm:px-8 py-8 overflow-y-auto">
 
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Alerts & Incidents</h1>
-          <p className="text-sm text-slate-400 mt-1">
-            {openAlerts.length} open · {resolvedAlerts.length} resolved
+        <div className="mb-10">
+          <h1 className="text-3xl font-semibold tracking-tight">Observability</h1>
+          <p className="text-sm text-white/50 mt-1">
+            System performance · Last 24 hours
           </p>
         </div>
 
-        <div className="flex gap-2">
-          <TabButton active={tab === "OPEN"} onClick={() => setTab("OPEN")}>
-            Open ({openAlerts.length})
-          </TabButton>
-          <TabButton active={tab === "RESOLVED"} onClick={() => setTab("RESOLVED")}>
-            Resolved ({resolvedAlerts.length})
-          </TabButton>
+        {/* TOP SECTION */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 mb-12">
+
+          {/* REQUEST RATE */}
+          <div className="xl:col-span-2 bg-white/5 border border-white/10 rounded-2xl p-6">
+            <p className="text-xs text-white/50 tracking-wider mb-4">REQUEST RATE</p>
+            <div className="h-44">
+              {loading ? (
+                <Skeleton className="h-full w-full rounded-xl" />
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={histories[services[0]?.serviceId] || []}>
+                    <CartesianGrid stroke="#1f2937" />
+                    <XAxis dataKey="time" stroke="#9ca3af" />
+                    <YAxis stroke="#9ca3af" />
+                    <Tooltip />
+                    <Bar dataKey="responseTime" fill="#22d3ee" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          {/* SERVICE STATUS */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+            <p className="text-xs text-white/50 tracking-wider mb-5">SERVICE STATUS</p>
+            {loading ? (
+              <div className="space-y-3">
+                {[...Array(5)].map((_, i) => (
+                  <Skeleton key={i} className="h-4 w-full" />
+                ))}
+              </div>
+            ) : (
+              <ul className="space-y-3 text-sm">
+                {services.map((s) => (
+                  <li key={s.serviceId} className="flex justify-between items-center">
+                    <span className="flex items-center gap-2">
+                      <span
+                        className={`w-2.5 h-2.5 rounded-full ${
+                          s.status === "UP" ? "bg-green-400" : "bg-red-400"
+                        }`}
+                      />
+                      <span className="text-white/80">{s.serviceName}</span>
+                    </span>
+                    <span className="text-white/50">
+                      {formatNumber(s.avgResponseTime)} ms
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
 
-        {loading ? (
-          <div className="space-y-4">
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-28 w-full" />
-            ))}
-          </div>
-        ) : visibleAlerts.length === 0 ? (
-          <p className="text-slate-400">No alerts</p>
-        ) : (
-          <div className="space-y-5">
-            {visibleAlerts.map((a) => (
-              <AlertCard key={a.id} alert={a} reason={reasons[a.id]} />
-            ))}
-          </div>
-        )}
+        {/* PER SERVICE */}
+        <h2 className="text-xl font-semibold mb-5 tracking-tight">
+          Per-Service Latency
+        </h2>
+
+        <div className="space-y-8">
+          {services.map((s) => (
+            <div
+              key={s.serviceId}
+              className="grid grid-cols-1 xl:grid-cols-4 gap-6 bg-white/5 border border-white/10 rounded-2xl p-6"
+            >
+              <div className="xl:col-span-1 flex items-center gap-3">
+                <span
+                  className={`w-3 h-3 rounded-full ${
+                    s.status === "UP" ? "bg-green-400" : "bg-red-400"
+                  }`}
+                />
+                <div>
+                  <p className="font-semibold text-lg">{s.serviceName}</p>
+                  <p className="text-xs text-white/50">
+                    Avg response: {formatNumber(s.avgResponseTime)} ms
+                  </p>
+                </div>
+              </div>
+
+              <div className="xl:col-span-3 h-44">
+                {loading ? (
+                  <Skeleton className="h-full w-full rounded-xl" />
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={histories[s.serviceId] || []}>
+                      <CartesianGrid stroke="#1f2937" />
+                      <XAxis dataKey="time" stroke="#9ca3af" />
+                      <YAxis stroke="#9ca3af" />
+                      <Tooltip />
+                      <Line
+                        type="monotone"
+                        dataKey="responseTime"
+                        stroke="#22d3ee"
+                        strokeWidth={2.5}
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
 };
 
-export default Alerts;
+export default Overview;
 
-/* ---------------- UI ---------------- */
-
-const TabButton = ({ active, onClick, children }) => (
-  <button
-    onClick={onClick}
-    className={`px-4 py-1.5 rounded-md text-sm border ${
-      active
-        ? "bg-cyan-500/20 border-cyan-400 text-cyan-300"
-        : "border-white/10 text-white/60 hover:bg-white/5"
-    }`}
-  >
-    {children}
-  </button>
-);
-
+/* Skeleton Loader */
 const Skeleton = ({ className }) => (
-  <div className={`animate-pulse bg-white/10 rounded-xl ${className}`} />
+  <div className={`animate-pulse bg-white/10 rounded-lg ${className}`} />
 );
 
-const AlertCard = ({ alert, reason }) => {
-  const severityStyles = {
-    CRITICAL: "border-red-500/40 bg-red-500/10 text-red-300",
-    WARNING: "border-yellow-500/40 bg-yellow-500/10 text-yellow-300",
-    INFO: "border-cyan-500/40 bg-cyan-500/10 text-cyan-300",
-  };
-
-  const serviceName = alert.service?.serviceName || "Unknown Service";
-
-  return (
-    <div className={`border rounded-2xl p-5 shadow-lg ${severityStyles[alert.type] || "border-white/10 bg-white/5"}`}>
-
-      <div className="flex justify-between items-start">
-        <div>
-          <p className="font-semibold text-lg">{alert.message}</p>
-          <div className="flex gap-2 mt-2 text-xs flex-wrap">
-            <span className="px-2 py-0.5 rounded bg-white/10">{serviceName}</span>
-            <span className="px-2 py-0.5 rounded bg-black/30">{alert.type || "INFO"}</span>
-          </div>
-        </div>
-
-        <div className="text-right text-xs text-slate-400">
-          <p>{timeAgo(alert.createdAt)}</p>
-          {alert.closedAt === null && (
-            <button className="mt-2 px-3 py-1 rounded bg-white/10 hover:bg-white/20">
-              Acknowledge
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* 🧠 AI ROOT CAUSE */}
-      {reason && (
-        <div className="mt-4 bg-gradient-to-br from-cyan-500/10 via-blue-500/5 border border-cyan-400/20 rounded-xl p-4">
-          <p className="text-sm text-cyan-300 font-semibold mb-1">🧠 AI Root Cause</p>
-          <p className="text-sm text-slate-200">{reason.summary}</p>
-
-          <div className="flex gap-4 mt-3 text-xs text-slate-400">
-            <span>Category: <b className="text-white">{reason.category}</b></span>
-            <span>Confidence: <b className="text-cyan-300">{reason.confidence}</b></span>
-          </div>
-
-          <div className="mt-2 text-xs text-yellow-300">
-            💡 {reason.recommendation}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-/* ---------------- HELPERS ---------------- */
-
-const timeAgo = (timestamp) => {
-  if (!timestamp) return "";
-  const diff = Date.now() - new Date(timestamp).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins} min ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} hour${hrs > 1 ? "s" : ""} ago`;
-  return new Date(timestamp).toLocaleDateString();
+const formatNumber = (v) => {
+  if (!v) return "—";
+  const n = Number(v);
+  return n % 1 === 0 ? n : n.toFixed(1);
 };
