@@ -2,7 +2,7 @@ import axios from "axios";
 
 // 🔹 Create axios instance
 const api = axios.create({
-  baseURL: "http://localhost:8080", // Spring Boot backend
+  baseURL: "https://dsg-1.onrender.com", // Spring Boot backend
   timeout: 15000, // 5 sec
   headers: {
     "Content-Type": "application/json",
