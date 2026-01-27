@@ -1,4 +1,4 @@
-iimport { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Sidebar from "../components/Sidebar";
 import { getAlerts } from "../api/alertsApi";
 import { getAiReason } from "../api/ai";
